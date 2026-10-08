@@ -120,7 +120,7 @@ function init () {
   var req = new window.XMLHttpRequest()
 
   req.addEventListener('load', function (e) {
-    proposals = JSON.parse(req.responseText)
+    proposals = normalizeProposals(JSON.parse(req.responseText))
 
     // don't display malformed proposals
     proposals = proposals.filter(function (proposal) {
@@ -151,7 +151,7 @@ function init () {
   })
 
   document.querySelector('#proposals-count-number').innerHTML = 'Loading ...'
-  req.open('get', 'https://data.swift.org/swift-evolution/proposals')
+  req.open('get', 'https://download.swift.org/swift-evolution/v1/evolution.json')
   req.send()
 }
 
@@ -1061,4 +1061,37 @@ function cleanNumberFromState (state) {
 
 function addNumberToState (state, count) {
   return state + ' (' + count + ')'
+}
+
+/**
+ * Adapts the proposal metadata published by swift.org to the shape the rest of
+ * this file renders.
+ *
+ * The published payload nests the proposals under a `proposals` key, names
+ * states without a leading dot (`implemented` rather than `.implemented`),
+ * lists `reviewManagers` instead of a single `reviewManager`, and omits the
+ * `assignee`/`status` fields on tracking bugs.
+ *
+ * @param {Object|Proposal[]} payload - The parsed JSON response.
+ * @returns {Proposal[]} Proposals matching the shape used throughout this file.
+ */
+function normalizeProposals (payload) {
+  var proposals = Array.isArray(payload) ? payload : payload.proposals
+  var versions = payload.implementationVersions
+
+  if (versions && versions.length) languageVersions = versions
+
+  return proposals.map(function (proposal) {
+    var state = proposal.status.state
+    if (state.charAt(0) !== '.') proposal.status.state = '.' + state
+
+    proposal.reviewManager = (proposal.reviewManagers && proposal.reviewManagers[0]) || { name: '', link: '' }
+
+    ;(proposal.trackingBugs || []).forEach(function (bug) {
+      if (!bug.assignee) bug.assignee = ''
+      if (!bug.status) bug.status = ''
+    })
+
+    return proposal
+  })
 }

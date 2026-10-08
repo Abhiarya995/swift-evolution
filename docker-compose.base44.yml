@@ -1,0 +1,27 @@
+# Base44 sandbox environment for the Swift Evolution status page.
+#
+# This project is a plain static site (index.html + index.js + index.css +
+# proposals/). There is no build step, so the "dev server" is a static file
+# server reading the bind-mounted source directly: an edit to any file is
+# visible on the next page load, with no image rebuild and no compilation.
+#
+# The page fetches its proposal metadata at runtime from swift.org
+# (see PROPOSALS_DATA_URL in index.js), which is why no local service, database
+# or credential is needed here.
+
+services:
+  web:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["python3", "-m", "http.server", "3000", "--bind", "0.0.0.0", "--directory", "/app"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/index.html', timeout=5)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
